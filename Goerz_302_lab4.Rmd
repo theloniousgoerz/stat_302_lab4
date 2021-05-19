@@ -1,0 +1,220 @@
+---
+title: "Lab 4"
+author: "STAT 302"
+date: "5/29/21"
+output: html_document
+---
+
+<!--- Begin styling code. --->
+<style type="text/css">
+/* Whole document: */
+body{
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  font-size: 12pt;
+}
+h1.title {
+  font-size: 38px;
+  text-align: center;
+}
+h4.author {
+  font-size: 18px;
+  text-align: center;
+}
+h4.date {
+  font-size: 18px;
+  text-align: center;
+}
+</style>
+<!--- End styling code. --->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+*If you collaborated with anyone, you must include "Collaborated with: FIRSTNAME LASTNAME" at the top of your lab!*
+
+For this lab, note that there are tidyverse methods to perform cross-validation in R (see the `rsample` package). However, your goal is to understand and be able to implement the algorithm "by hand", meaning  that automated procedures from the `rsample` package, or similar packages, will not be accepted.
+
+To begin, load in the popular `penguins` data set from the package `palmerpenguins`.
+
+```{r}
+# install.packages("palmerpenguins")
+library(palmerpenguins)
+data(package = "palmerpenguins")
+# Assign to an objsect
+penguin_data <- penguins
+```
+
+## Part 1. k-Nearest Neighbors Cross-Validation (10 points)
+
+Our goal here is to predict output class `species` using covariates `bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, and `body_mass_g`.
+All your code should be within a function `my_knn_cv`.
+
+**Input:**
+
+  * `train`: input data frame
+  * `cl`: true class value of your training data
+  * `k_nn`: integer representing the number of neighbors
+  * `k_cv`: integer representing the number of folds
+  
+*Please note the distinction between `k_nn` and `k_cv`!*
+
+**Output:** a list with objects
+
+  * `class`: a vector of the predicted class $\hat{Y}_{i}$ for all observations
+  * `cv_err`: a numeric with the cross-validation misclassification error
+
+
+You will need to include the following steps:
+
+* Within your function, define a variable `fold` that randomly assigns observations to folds $1,\ldots,k$ with equal probability. (*Hint: see the example code on the slides for k-fold cross validation*)
+* Iterate through $i = 1:k$. 
+  * Within each iteration, use `knn()` from the `class` package to predict the class of the $i$th fold using all other folds as the training data.
+  * Also within each iteration, record the prediction and the misclassification rate (a value between 0 and 1 representing the proportion of observations that were classified **incorrectly**).
+* After you have done the above steps for all $k$ iterations, store the vector `class` as the output of `knn()` with the full data as both the training and the test data, and the value `cv_error` as the average misclassification rate from your cross validation.
+
+**Submission:** To prove your function works, apply it to the `penguins` data. Predict output class `species` using covariates `bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, and `body_mass_g`. Use $5$-fold cross validation (`k_cv = 5`). Use a table to show the `cv_err` values for 1-nearest neighbor and 5-nearest neighbors (`k_nn = 1` and `k_nn = 5`). Comment on which value had lower CV misclassification error and which had lower training set error (compare your output `class` to the true class, `penguins$species`).
+
+```{r}
+set.seed(1)
+#======
+# Test the KNN function. 
+# Create training and test data ====================================
+# Clean the data for NA 
+penguin_knn <- penguin_data %>% na.omit
+# create sample
+type_t_t <- sample(rep(1:2, length = nrow(penguin_knn)))
+penguin_knn <- penguin_data %>% na.omit %>% mutate(type = type_t_t)
+# Create a data frame of the input variables 
+penguin_knn <- penguin_data %>% select(bill_depth_mm,bill_length_mm,body_mass_g,flipper_length_mm,species) 
+# Create a classifier for training and test data. 
+# Merge that with the full data
+penguin_knn <- penguin_knn %>% mutate(type = type_t_t)
+# create a training data set 
+penguin_train <- penguin_knn %>% filter(type == 1) %>% select(-type,-species)
+# create a test data set 
+penguin_test <- penguin_knn %>% filter(type == 2) %>% select(-type,-species)
+
+# Create a test cl dataset which has the true Y values for the test set. 
+penguin_test_cl <-  penguin_knn %>% filter(type == 2) %>% select(species)
+# Make into a vector 
+penguin_test_cl <- as_vector(penguin_test_cl)
+
+#==================================================
+#CL For Y 
+# Create a factor of the output variables for Train 
+penguin_knn_true_cl <- penguin_knn %>% filter(type == 1) %>% select(species)
+# Make it a vector. 
+penguin_knn_true_cl <- as_vector(penguin_knn_true_cl)
+
+penguin_knn_true_cl
+
+# Knn ============
+
+knn_p_test <- knn(penguin_train,penguin_test,penguin_knn_true_cl,k = 5)
+
+str(knn_p_test)
+
+```
+
+```{r}
+# Replicate the KNN algorithm by hand. 
+# This function "my_knn_cv" combines two other functions for convenience. 
+# install.packages("class")
+library(class)
+library(tidyverse)
+
+my_knn_cv <- function(train,cl,k_nn,k_cv) {
+  # Depends on:
+  require(class)
+  require(tidyverse)
+  # Create fold arg, with k partitions. 
+  fold = sample(rep(1:k_cv,length = nrow(train)))
+  # Add train to fold vector. 
+  data = cbind(train,fold)
+  # Create ome with class
+  data_w_cl = cbind(fold,cl)
+  # Create a list object for later values. 
+    knn_list = list()
+    knn_error_list = list()
+  # Iterate through the Ks.
+  for (i in 1:k_cv) { 
+    # Create trainind and test data. 
+    data_train = data %>% filter(fold != i) %>% 
+      select(-fold)
+    data_test = data %>% filter(fold == i) %>% 
+      select(-fold)
+    cl = data_w_cl %>% filter(fold != i) %>% 
+      select(-fold)
+    # Create a prediction vector. 
+    cl_predict = data_w_cl %>% filter(fold == i) %>% 
+      select(-fold)
+    # Run KNN. 
+    # Coerce type to work in the KNN function. 
+    cl = as_vector(cl)
+    cl_predict = as_vector(cl_predict)
+   knn_iter <-  knn(data_train,
+        data_test,
+        cl = cl, 
+        k = k_nn)
+   # Calculate the correctly classified 
+  knn_test_eq = knn_iter == cl_predict
+  # Calculate the number of TRUEs
+  num_corr_class = sum(knn_test_eq)
+  pct_corr_class = num_corr_class / length(knn_iter)
+  pct_miss_class = 1-pct_corr_class
+  # Store these in the list 
+  knn_list[[paste("pred_class",i,sep = "_")]] <- knn_iter
+  knn_error_list[[paste("pct_miss_class",i,sep = "_")]] <- pct_miss_class 
+  }
+  # Calculate return values. 
+  # Calculate the mean missclassification
+  cv_err = mean(unlist(knn_error_list))
+  class = knn_list
+  list_out = c(class,cv_err)
+  return(list_out)
+  # Returns a list of the models and their predictions 
+  # Returns the cv error 
+}
+# === Test function 
+penguin_input_data = penguin_knn %>% select(-type,-species)
+penguin_data_cl <- penguin_knn %>% select(species)
+
+my_knn_cv(penguin_input_data,penguin_data_cl,k_nn = 5,k_cv = 5)
+
+```
+
+
+
+## Part 2. Random Forest Cross-Validation (10 points)
+
+Now, we will predict output `body_mass_g` using covariates `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm`.
+All your code should be within a function `my_rf_cv`.
+
+**Input:**
+
+  * `k`: number of folds
+
+**Output:**
+
+  * a numeric with the cross-validation error
+  
+Your code will look very similar to Part 1! You will need the following steps: 
+
+* Within your function, define a variable `fold` within the `penguins` data that randomly assigns observations to folds $1,\ldots,k$ with equal probability. (*Hint: see the example code on the slides for k-fold cross validation*)
+* Iterate through $i = 1:k$. 
+  * Within each iteration, define your training data as all the data not in the $i$th fold.
+  * Also within each iteration, use `randomForest()` from the `randomForest` package to train a random forest model with $100$ trees to predict `body_mass_g` using covariates `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm`. <br>
+*Hint: `randomForest()` takes formula input. Your code here will probably look something like: *
+`MODEL <- randomForest(body_mass_g ~ bill_length_mm + bill_depth_mm + flipper_length_mm, data = TRAINING_DATA, ntree = 100)`
+  * Also within each iteration, predict the `body_mass_g` of the $i$th fold which was not used as training data. <br>
+  *Hint: predicting with `randomForest()` works similar to `lm()`. Your code here will probably looks something like: *
+  `PREDICTIONS <- predict(MODEL, TEST_DATA[, -1])`
+  *where we remove the first column, `body_mass_g` from our test data.*
+  * Also within each iteration, evaluate the MSE, the average squared difference between predicted `body_mass_g` and true `body_mass_g`.
+* Return the average MSE across all $k$ folds.
+
+**Submission:** 
+To prove your function works, apply it to the `penguins` data. Predict `body_mass_g` using covariates `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm`.
+Run your function with $5$-fold cross validation (`k = 5`) and report the CV MSE.
