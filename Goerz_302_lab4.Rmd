@@ -41,6 +41,8 @@ To begin, load in the popular `penguins` data set from the package `palmerpengui
 ```{r}
 # install.packages("palmerpenguins")
 library(palmerpenguins)
+library(class)
+library(tidyverse)
 data(package = "palmerpenguins")
 # Assign to an objsect
 penguin_data <- penguins
@@ -84,12 +86,12 @@ set.seed(1)
 # Clean the data for NA 
 penguin_knn <- penguin_data %>% na.omit
 # create sample
-type_t_t <- sample(rep(1:2, length = nrow(penguin_knn)))
-penguin_knn <- penguin_data %>% na.omit %>% mutate(type = type_t_t)
 # Create a data frame of the input variables 
-penguin_knn <- penguin_data %>% select(bill_depth_mm,bill_length_mm,body_mass_g,flipper_length_mm,species) 
+penguin_knn <- penguin_data %>% select(bill_depth_mm,bill_length_mm,body_mass_g,flipper_length_mm,species) %>% 
+  na.omit
 # Create a classifier for training and test data. 
 # Merge that with the full data
+type_t_t <- sample(rep(1:2, length = nrow(penguin_knn)))
 penguin_knn <- penguin_knn %>% mutate(type = type_t_t)
 # create a training data set 
 penguin_train <- penguin_knn %>% filter(type == 1) %>% select(-type,-species)
@@ -108,13 +110,7 @@ penguin_knn_true_cl <- penguin_knn %>% filter(type == 1) %>% select(species)
 # Make it a vector. 
 penguin_knn_true_cl <- as_vector(penguin_knn_true_cl)
 
-penguin_knn_true_cl
 
-# Knn ============
-
-knn_p_test <- knn(penguin_train,penguin_test,penguin_knn_true_cl,k = 5)
-
-str(knn_p_test)
 
 ```
 
@@ -122,9 +118,6 @@ str(knn_p_test)
 # Replicate the KNN algorithm by hand. 
 # This function "my_knn_cv" combines two other functions for convenience. 
 # install.packages("class")
-library(class)
-library(tidyverse)
-
 my_knn_cv <- function(train,cl,k_nn,k_cv) {
   # Depends on:
   require(class)
@@ -133,8 +126,13 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   fold = sample(rep(1:k_cv,length = nrow(train)))
   # Add train to fold vector. 
   data = cbind(train,fold)
-  # Create ome with class
+  # Create one with class
   data_w_cl = cbind(fold,cl)
+  # Create full data for eventual KNN calc. 
+  # Clone CL. 
+  cl_full <- as_vector(cl)
+  # Clone train. 
+  train_full <- train
   # Create a list object for later values. 
     knn_list = list()
     knn_error_list = list()
@@ -162,7 +160,9 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   knn_test_eq = knn_iter == cl_predict
   # Calculate the number of TRUEs
   num_corr_class = sum(knn_test_eq)
+  # Calculate the correct classification rate 
   pct_corr_class = num_corr_class / length(knn_iter)
+  # Calculate the missclassification 
   pct_miss_class = 1-pct_corr_class
   # Store these in the list 
   knn_list[[paste("pred_class",i,sep = "_")]] <- knn_iter
@@ -170,21 +170,54 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   }
   # Calculate return values. 
   # Calculate the mean missclassification
-  cv_err = mean(unlist(knn_error_list))
-  class = knn_list
-  list_out = c(class,cv_err)
+  # calculate the prediction for KNN 
+  # Predict the final classification. 
+    knn_prediction = knn(train_full,
+                         train_full,
+                         cl = cl_full, k = 5)
+    ## Returns a KNN predictd off of all the test data. 
+    # Calculate CV Error. 
+cv_err = mean(unlist(knn_error_list))
+# Create an output list 
+ list_out = list()
+ # Assign the values to a list. 
+  list_out[["class"]] <- knn_prediction
+  list_out[["cv_err"]] <- cv_err
   return(list_out)
   # Returns a list of the models and their predictions 
   # Returns the cv error 
 }
+
 # === Test function 
-penguin_input_data = penguin_knn %>% select(-type,-species)
+penguin_input_data <- penguin_knn %>% select(-type,-species) 
 penguin_data_cl <- penguin_knn %>% select(species)
 
-my_knn_cv(penguin_input_data,penguin_data_cl,k_nn = 5,k_cv = 5)
-
+set.seed(1)
+# Run k fold cross validation for 5NN. 
+# Call the function 
+# Input train 
+penguin_k_fold_5 <- my_knn_cv(penguin_input_data,
+          # Input real class values. 
+          penguin_data_cl,
+          # Select nearest neighbors. 
+          k_nn = 5,
+          # Select folds. 
+          k_cv = 5)
+# Run K fold for 1 NN. 
+# Call the function 
+# Input train 
+penguin_k_fold_1 <- my_knn_cv(penguin_input_data,
+          # Input real class values. 
+          penguin_data_cl,
+          # Select nearest neighbors. 
+          k_nn = 1,
+          # Select folds. 
+          k_cv = 5)
+# Create a table to compare the two cross validation errors. 
+tibble(cv_error = c(penguin_k_fold_1$cv_err,penguin_k_fold_5$cv_err),
+       nn = c(1,5))
+# Now compare the classification to the true data. 
 ```
-
 
 
 ## Part 2. Random Forest Cross-Validation (10 points)
@@ -218,3 +251,10 @@ Your code will look very similar to Part 1! You will need the following steps:
 **Submission:** 
 To prove your function works, apply it to the `penguins` data. Predict `body_mass_g` using covariates `bill_length_mm`, `bill_depth_mm`, and `flipper_length_mm`.
 Run your function with $5$-fold cross validation (`k = 5`) and report the CV MSE.
+
+
+```{r}
+# RF
+
+```
+
