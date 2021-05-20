@@ -136,6 +136,7 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   # Create a list object for later values. 
     knn_list = list()
     knn_error_list = list()
+    knn_corr_list = list()
   # Iterate through the Ks.
   for (i in 1:k_cv) { 
     # Create trainind and test data. 
@@ -165,6 +166,7 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   # Calculate the missclassification 
   pct_miss_class = 1-pct_corr_class
   # Store these in the list 
+  knn_corr_list[[i]] <- pct_corr_class
   knn_list[[paste("pred_class",i,sep = "_")]] <- knn_iter
   knn_error_list[[paste("pct_miss_class",i,sep = "_")]] <- pct_miss_class 
   }
@@ -216,9 +218,24 @@ penguin_k_fold_1 <- my_knn_cv(penguin_input_data,
 # Create a table to compare the two cross validation errors. 
 tibble(cv_error = c(penguin_k_fold_1$cv_err,penguin_k_fold_5$cv_err),
        nn = c(1,5))
+
+## 
 # Now compare the classification to the true data. 
+# Compare real class with k 1 
+Penguin_k1_compare <- penguin_k_fold_1$class == as_vector(penguin_data_cl)
+Penguin_k1_compare
+# Calculate the percent correctly classified. 
+sum(Penguin_k1_compare) / length(Penguin_k1_compare)
+
+# Compare with real class with k 5 
+Penguin_k5_compare <- penguin_k_fold_5$class == as_vector(penguin_data_cl)
+Penguin_k5_compare
+# Calculate the percent correctly classified. 
+sum(Penguin_k5_compare) / length(Penguin_k5_compare)
 ```
 
+In these two models, the $\ k =1$ model had the lower cv misspecification error. 
+Practically speaking, the $\ k=5$ model had the better predictive error but only marginally. 
 
 ## Part 2. Random Forest Cross-Validation (10 points)
 
