@@ -271,7 +271,33 @@ Run your function with $5$-fold cross validation (`k = 5`) and report the CV MSE
 
 
 ```{r}
-# RF
+penguin_data <- penguin_data %>% na.omit
+#install.packages("randomForest")
+install.packages("randomForest")
+library(randomForest)
+# RF cross validation 
+# Penguin data random forest cross validation. 
+my_rf_cv <- function(k) {
+  require(palmerpenguins)
+  require(tidyverse)
+  require(randomForest)
+  # Define data. 
+  data = penguins %>% 
+    # Clean data. 
+    na.omit() %>% 
+    # Define data input. 
+    select(flipper_length_mm, bill_length_mm,bill_depth_mm,body_mass_g)
+  # Define fold. 
+  fold = sample(rep(1:k,length = nrow(data)))
+  
+  for (i in 1:k) {
+    # run random forest model 
+    randomForest()
+  }
+  
+}
+
+randomForest(body_mass_g~ bill_length_mm, data = penguin_data)
 
 ```
 
