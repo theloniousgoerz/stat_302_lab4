@@ -289,15 +289,36 @@ my_rf_cv <- function(k) {
     select(flipper_length_mm, bill_length_mm,bill_depth_mm,body_mass_g)
   # Define fold. 
   fold = sample(rep(1:k,length = nrow(data)))
-  
+  data = cbind(data, fold)
+  # Create a list for the data 
+  rf_list = list()
+  mse_list = list()
   for (i in 1:k) {
+    # Define data 
+    data_train = data %>% filter(fold != i) %>% 
+      select(-fold)
+    data_test = data %>% filter(fold == i) 
+    data_test_y = data_test$body_mass_g
+    data_test = data_test %>% select(-fold)
     # run random forest model 
-    randomForest()
+    rand_for <- randomForest(body_mass_g ~ bill_length_mm + bill_depth_mm + flipper_length_mm, 
+                 data = data_train,
+                 ntree = 100)
+    # Compute prediction on test data. 
+   prediction <-  predict(rand_for, newdata = data_test)
+    rf_list[[i]] <- rand_for
+    # Compute MSE 
+    mse = mean((prediction - data_test_y)^2)
+    mse_list[[i]] <- mse
   }
-  
+  cv_err = mean(unlist(mse_list))
+  return(cv_err)
 }
 
-randomForest(body_mass_g~ bill_length_mm, data = penguin_data)
+my_rf_cv(k = 100)
 
+rf <- randomForest(body_mass_g~ bill_length_mm, data = penguin_data,ntree = 100) 
+predict(rf,newdata = penguin_data)
+?randomForest
 ```
 
