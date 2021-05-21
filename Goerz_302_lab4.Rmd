@@ -30,6 +30,7 @@ h4.date {
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 100)
 ```
 
 *If you collaborated with anyone, you must include "Collaborated with: FIRSTNAME LASTNAME" at the top of your lab!*
@@ -271,22 +272,30 @@ Run your function with $5$-fold cross validation (`k = 5`) and report the CV MSE
 
 
 ```{r}
-penguin_data <- penguin_data %>% na.omit
+# Clean data for testing random forest. 
+penguin_data <- penguins %>% na.omit
+# ================================
+# Begin function. 
 #install.packages("randomForest")
-install.packages("randomForest")
+# install.packages("randomForest")
 library(randomForest)
 # RF cross validation 
 # Penguin data random forest cross validation. 
 my_rf_cv <- function(k) {
+  # Require packages for function. 
   require(palmerpenguins)
   require(tidyverse)
   require(randomForest)
   # Define data. 
   data = penguins %>% 
-    # Clean data. 
+    # Clean data for NA
     na.omit() %>% 
     # Define data input. 
-    select(flipper_length_mm, bill_length_mm,bill_depth_mm,body_mass_g)
+    # Select Vars 
+    select(flipper_length_mm, 
+           bill_length_mm,
+           bill_depth_mm,
+           body_mass_g)
   # Define fold. 
   fold = sample(rep(1:k,length = nrow(data)))
   data = cbind(data, fold)
@@ -295,30 +304,45 @@ my_rf_cv <- function(k) {
   mse_list = list()
   for (i in 1:k) {
     # Define data 
-    data_train = data %>% filter(fold != i) %>% 
+    data_train = data %>% 
+      # Filter folds to all but i 
+      filter(fold != i) %>% 
+      # Rm fold from computation.
       select(-fold)
+    # Filter test data to i. 
     data_test = data %>% filter(fold == i) 
+    # Define the y outcome to calculate against
     data_test_y = data_test$body_mass_g
+    # Remove fold from data test.
     data_test = data_test %>% select(-fold)
     # run random forest model 
     rand_for <- randomForest(body_mass_g ~ bill_length_mm + bill_depth_mm + flipper_length_mm, 
+                             # Data.
                  data = data_train,
+                 # Set ntree to 100
                  ntree = 100)
     # Compute prediction on test data. 
    prediction <-  predict(rand_for, newdata = data_test)
+   # Assign random forest estimates to a list. 
     rf_list[[i]] <- rand_for
     # Compute MSE 
+    # Compute MSE 
     mse = mean((prediction - data_test_y)^2)
+    # Add MSE to a list. 
     mse_list[[i]] <- mse
   }
+  # Compute cross validation error. 
   cv_err = mean(unlist(mse_list))
+  # Return Cross validation error. 
   return(cv_err)
+  # Returns the numeric CV error. 
 }
-
-my_rf_cv(k = 100)
-
-rf <- randomForest(body_mass_g~ bill_length_mm, data = penguin_data,ntree = 100) 
-predict(rf,newdata = penguin_data)
-?randomForest
+# Test function 
+# ====================
+cv_err_rf <- my_rf_cv(k = 5)
+# Table CV err for simulation. 
+data_frame(Cv_err = cv_err_rf)
 ```
+
+The mean squared error of the five fold cross validation was `r round(cv_err_rf,3)`. 
 
