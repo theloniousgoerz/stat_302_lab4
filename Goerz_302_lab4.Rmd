@@ -116,7 +116,7 @@ penguin_knn_true_cl <- as_vector(penguin_knn_true_cl)
 ```
 
 ```{r}
-# Replicate the KNN algorithm by hand. 
+
 # This function "my_knn_cv" combines two other functions for convenience. 
 # install.packages("class")
 my_knn_cv <- function(train,cl,k_nn,k_cv) {
@@ -177,7 +177,7 @@ my_knn_cv <- function(train,cl,k_nn,k_cv) {
   # Predict the final classification. 
     knn_prediction = knn(train_full,
                          train_full,
-                         cl = cl_full, k = 5)
+                         cl = cl_full, k = k_nn)
     ## Returns a KNN predictd off of all the test data. 
     # Calculate CV Error. 
 cv_err = mean(unlist(knn_error_list))
